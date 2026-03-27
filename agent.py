@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List, TypedDict
 
 import requests
@@ -85,7 +86,7 @@ def summarize(state: ResearchState) -> ResearchState:
 
     summarized_sources: List[str] = []
     summaries: List[str] = []
-    for url in state["sources"]:
+    for url in state["sources"][:3]:
         try:
             result = tavily.extract(urls=[url])
             extract_results = (result or {}).get("results", [])
@@ -106,10 +107,11 @@ def summarize(state: ResearchState) -> ResearchState:
 
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=220,
+            max_tokens=100,
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
         )
+        time.sleep(10)
         text_chunks = [
             block.text for block in message.content if getattr(block, "type", "") == "text"
         ]
