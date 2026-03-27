@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, TypedDict
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
@@ -32,6 +33,14 @@ class ApproveRequest(BaseModel):
 
 
 app = FastAPI(title="Research Agent API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Simple in-memory store: {job_id: JobData}
 jobs: Dict[str, JobData] = {}
