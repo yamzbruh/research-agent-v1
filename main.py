@@ -1,8 +1,11 @@
+import json
+import os
 from dotenv import load_dotenv
 load_dotenv()
 from typing import Dict, List, Optional, TypedDict
 from uuid import uuid4
 
+import anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -127,6 +130,56 @@ def get_report(job_id: str):
             approved_items.append({"source": source, "summary": summary})
 
     return {"topic": state["topic"], "approved_items": approved_items}
+
+
+@app.post("/research/{job_id}/synthesize")
+def synthesize_essay(job_id: str):
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not anthropic_api_key:
+        raise HTTPException(status_code=500, detail="Missing ANTHROPIC_API_KEY in environment.")
+
+    state = job["state"]
+    approvals = job["approvals"]
+
+    approved_items = []
+    for source, summary, approved in zip(state["sources"], state["summaries"], approvals):
+        if approved is True:
+            approved_items.append({"source": source, "summary": summary})
+
+    if not approved_items:
+        raise HTTPException(status_code=400, detail="No approved sources to synthesize.")
+
+    topic = state["topic"]
+    approved_items_str = json.dumps(approved_items, ensure_ascii=False)
+
+    prompt = (
+        "You are a research assistant. Based on the following approved sources "
+        "and their summaries, write a comprehensive, well-structured essay "
+        "synthesizing all the key findings. Remove duplicate information, "
+        "identify common themes, and present the information as a cohesive "
+        "narrative. Include an introduction, main body with key findings, "
+        "and a conclusion.\n\n"
+        f"Topic: {topic}\n"
+        f"Sources and Summaries: {approved_items_str}"
+    )
+
+    client = anthropic.Anthropic(api_key=anthropic_api_key)
+    message = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        temperature=0,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text_chunks = [
+        block.text for block in message.content if getattr(block, "type", "") == "text"
+    ]
+    essay = " ".join(text_chunks).strip()
+
+    return {"essay": essay}
 
 
 if __name__ == "__main__":

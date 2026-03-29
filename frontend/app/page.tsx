@@ -34,6 +34,8 @@ export default function Home() {
   const [items, setItems] = useState<SourceItem[]>([]);
   const [reportItems, setReportItems] = useState<ReportItem[] | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [essay, setEssay] = useState<string | null>(null);
+  const [essayLoading, setEssayLoading] = useState(false);
 
   const allReviewed = useMemo(() => {
     return items.length > 0 && items.every((it) => it.approved !== null);
@@ -42,6 +44,7 @@ export default function Home() {
   async function startResearch() {
     setError(null);
     setReportItems(null);
+    setEssay(null);
     setItems([]);
     setJobId(null);
     setLoading(true);
@@ -111,6 +114,28 @@ export default function Home() {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setReportLoading(false);
+    }
+  }
+
+  async function generateEssay() {
+    if (!jobId) return;
+    setError(null);
+    setEssayLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/research/${jobId}/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+      const data: { essay: string } = await res.json();
+      setEssay(data.essay);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setEssayLoading(false);
     }
   }
 
@@ -307,6 +332,41 @@ export default function Home() {
                 ))}
               </div>
             )}
+
+            {reportItems.length > 0 ? (
+              <div className="mt-8 border-t border-zinc-800 pt-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-200">
+                      Synthesized essay
+                    </h3>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Generate a cohesive narrative from your approved sources.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateEssay}
+                    disabled={essayLoading}
+                    className="h-10 shrink-0 rounded-xl border border-zinc-700 bg-zinc-800 px-4 text-sm font-medium text-zinc-100 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {essayLoading ? "Generating…" : "Generate Essay"}
+                  </button>
+                </div>
+
+                {essay ? (
+                  <article className="mt-6 max-w-3xl rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-6 py-8">
+                    <div className="space-y-4 text-[15px] leading-7 text-zinc-300">
+                      {essay.split(/\n\n+/).map((para, i) => (
+                        <p key={i} className="text-pretty">
+                          {para.trim()}
+                        </p>
+                      ))}
+                    </div>
+                  </article>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
       </div>
