@@ -14,7 +14,7 @@ type ReportItem = {
   summary: string;
 };
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://web-production-c762f1.up.railway.app";
 
 function Spinner() {
   return (
